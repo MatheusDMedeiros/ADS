@@ -8,8 +8,8 @@ e2e_delay = ['10000', '100000']
 repeticao = 8
 
 id_exp = 'i1234'
-tempo_execucao = '10'
-tempo_execucao_server = '20'
+tempo_execucao = '30'
+tempo_execucao_server = '50'
 
 ip_pc1 = '10.0.0.20'
 ip_pc2 = '10.0.3.20'
