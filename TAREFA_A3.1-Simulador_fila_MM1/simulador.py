@@ -2,12 +2,16 @@
 import heapq
 import random
 import math
+import matplotlib.pyplot as plt
 
 # Parâmetros do simulador
 arrival_rate = 0.5  # Taxa de chegada exponencial (lambda)
 service_rate = 0.3  # Taxa de atendimento exponencial (mu)
-simulation_time = 200000  # Tempo total de simulação
+simulation_time = 100000  # Tempo total de simulação
 
+uniforme =[]
+
+exp = []
 
 # Classe geradora de números randômicos
 
@@ -35,6 +39,7 @@ class LCG:
             Um número pseudoaleatório.
         """
         self.seed = (self.a * self.seed + self.c) % self.m
+        uniforme.append(self.seed / self.m)
         return self.seed / self.m  # Normaliza o valor para estar entre 0 e 1
 
 # Classe para representar o evento
@@ -92,78 +97,51 @@ class Simulator:
 
     def exponential_random_variate(self, rate):
         #return -math.log(1.0 - random.random()) / rate
-        return -math.log(1.0 - self.LCG.sample()) / rate
+        resultado = -math.log(1.0 - self.LCG.sample()) / rate
+        exp.append(resultado)
+        return resultado
 
-    def arrival_action_MM1_1(self):
-        interarrival_time = self.exponential_random_variate(self.MM1_1.arrival_rate)
-        self.schedule_event(interarrival_time, self.arrival_action_MM1_1, "Chegada", self.MM1_1)
+    def arrival_action(self, MM1_queue):
+        interarrival_time = self.exponential_random_variate(MM1_queue.arrival_rate)
+        if MM1_queue == self.MM1_1:
+            self.schedule_event(interarrival_time, self.arrival_action, "Chegada", self.MM1_1)
 
-        if self.MM1_1.server_idle == True :
-            service_time = self.exponential_random_variate(self.MM1_1.service_rate)
-            self.MM1_1.response_time += service_time
-            self.schedule_event(service_time, self.departure_action_MM1_1, "Partida", self.MM1_1)
-            self.MM1_1.server_idle = False
+        if MM1_queue.server_idle == True :
+            service_time = self.exponential_random_variate(MM1_queue.service_rate)
+            MM1_queue.response_time += service_time
+            self.schedule_event(service_time, self.departure_action, "Partida", MM1_queue)
+            MM1_queue.server_idle = False
             print("Inicia serviço")
         else:
             # Adiciona o evento à fila com o tempo de chegada
-            event = Event(self.current_time, None, "Chegada", self.MM1_1)
+            event = Event(self.current_time, None, "Chegada", MM1_queue)
             print("Enfileira")
-            self.MM1_1.queue.enqueue(event)
+            MM1_queue.queue.enqueue(event)
 
 
-    def arrival_action_MM1_2(self):
+    def departure_action(self,MM1_queue):
+        MM1_queue.num_customers_served += 1
 
-        if self.MM1_2.server_idle == True :
-            service_time = self.exponential_random_variate(self.MM1_2.service_rate)
-            self.MM1_2.response_time += service_time
-            self.schedule_event(service_time, self.departure_action_MM1_2, "Partida", self.MM1_2)
-            self.MM1_2.server_idle = False
-            print("Inicia serviço")
-        else:
-            # Adiciona o evento à fila com o tempo de chegada
-            event = Event(self.current_time, None, "Chegada",self.MM1_2)
-            print("Enfileira")
-            self.MM1_2.queue.enqueue(event)
-
-    def departure_action_MM1_1(self):
-        self.MM1_1.num_customers_served += 1
-
-        if not self.MM1_1.queue.is_empty():
-            event = self.MM1_1.queue.dequeue()
+        if not MM1_queue.queue.is_empty():
+            event = MM1_queue.queue.dequeue()
             waiting_time = self.current_time - event.time
-            self.MM1_1.queue_waiting_time += waiting_time
-            print("Tempo {:.2f}: Tempo espera de cliente".format(self.MM1_1.queue_waiting_time))
-            self.MM1_1.num_customers_served_from_queue += 1
+            MM1_queue.queue_waiting_time += waiting_time
+            print("Tempo {:.2f}: Tempo espera de cliente".format(MM1_queue.queue_waiting_time))
+            MM1_queue.num_customers_served_from_queue += 1
 
-            service_time = self.exponential_random_variate(self.MM1_1.service_rate)
-            self.MM1_1.response_time += waiting_time + service_time
+            service_time = self.exponential_random_variate(MM1_queue.service_rate)
+            MM1_queue.response_time += waiting_time + service_time
 
-            self.schedule_event(service_time, self.departure_action_MM1_1, "Partida",self.MM1_1)
+            self.schedule_event(service_time, self.departure_action, "Partida",MM1_queue)
         else:
-            self.MM1_1.server_idle = True
+            MM1_queue.server_idle = True
 
-        self.schedule_event(0, self.arrival_action_MM1_2, "Chegada", self.MM1_2)
-
-    def departure_action_MM1_2(self):
-        self.MM1_2.num_customers_served += 1
-
-        if not self.MM1_2.queue.is_empty():
-            event = self.MM1_2.queue.dequeue()
-            waiting_time = self.current_time - event.time
-            self.MM1_2.queue_waiting_time += waiting_time
-            print("Tempo {:.2f}: Tempo espera de cliente".format(self.MM1_2.queue_waiting_time))
-            self.MM1_2.num_customers_served_from_queue += 1
-
-            service_time = self.exponential_random_variate(self.MM1_2.service_rate)
-            self.MM1_2.response_time += waiting_time + service_time
-
-            self.schedule_event(service_time, self.departure_action_MM1_2, "Partida", self.MM1_2)
-        else:
-            self.MM1_2.server_idle = True
+        if MM1_queue == self.MM1_1:
+            self.schedule_event(0, self.arrival_action, "Chegada", self.MM1_2)
 
 
     def run(self, end_time):
-        self.schedule_event(0, self.arrival_action_MM1_1, "Chegada", self.MM1_1)
+        self.schedule_event(0, self.arrival_action, "Chegada", self.MM1_1)
 
         while self.current_time < end_time:
             if not self.event_queue:
@@ -184,7 +162,7 @@ class Simulator:
             elif event.event_type == "Partida" and event.MM1_queue == self.MM1_2:
                 print("Tempo {:.2f}: Partida de cliente na fila 2".format(self.current_time))
 
-            event.action()
+            event.action(event.MM1_queue)
         print("Tempo {:.2f}: Número médio de requisições no sistema no Sistema".format(self.MM1_1.response_time/self.current_time))
         print("Tempo {:.2f}: Total Requisicoes no Sistema".format(self.MM1_1.num_customers_served))
         print("Tempo {:.2f}: Vazao no Sistema".format(self.MM1_1.num_customers_served / simulation_time))
@@ -199,3 +177,19 @@ class Simulator:
 
 simulator = Simulator(0.5, 0.8,arrival_rate, 0.6)
 simulator.run(simulation_time)
+plt.style.use('seaborn')
+
+plt.subplot(2,1,1)
+plt.title('Histograma Gerador Uniforme')
+
+plt.ylabel('Número de Ocorrências')
+
+plt.hist(uniforme)
+
+plt.subplot(2,1,2)
+plt.title('Histograma Gerador Exponencial')
+plt.ylabel('Número de Ocorrências')
+plt.hist(exp, bins=300)
+plt.tight_layout()
+
+plt.show()
